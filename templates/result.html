@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="result-page">
+    <h2><i class="fa-solid fa-clipboard-check"></i> Menu Analysis Result</h2>
+
+    <div class="result-grid">
+
+        <!-- Safe Dishes -->
+        <div class="result-card safe-card">
+            <h3><i class="fa-solid fa-circle-check"></i> Safe to Eat</h3>
+            {% if safe_dishes %}
+                <ul>
+                {% for dish in safe_dishes %}
+                    <li>{{ dish }}</li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p class="empty-msg">No clearly safe dishes identified.</p>
+            {% endif %}
+        </div>
+
+        <!-- Unsafe Dishes -->
+        <div class="result-card unsafe-card">
+            <h3><i class="fa-solid fa-triangle-exclamation"></i> Avoid These</h3>
+            {% if unsafe_dishes %}
+                <ul>
+                {% for dish in unsafe_dishes %}
+                    <li>{{ dish }}</li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p class="empty-msg">No unsafe dishes identified.</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- Waiter Message -->
+    <div class="waiter-card">
+        <h3><i class="fa-solid fa-comment-dots"></i> Message for Waiter
+            <span class="lang-badge">{{ waiter_language }}</span>
+        </h3>
+        <p id="waiterMessage">{{ waiter_message }}</p>
+        <button class="btn btn-speak" onclick="speakToWaiter()">
+            <i class="fa-solid fa-volume-high"></i> Speak to Waiter
+        </button>
+    </div>
+
+    <a href="{{ url_for('analyse') }}" class="btn btn-secondary" style="margin-top:24px;">
+        <i class="fa-solid fa-arrow-left"></i> Scan Another Menu
+    </a>
+</div>
+
+<script>
+function speakToWaiter() {
+    const message  = document.getElementById('waiterMessage').textContent;
+    const language = "{{ waiter_language }}";
+
+    const langMap = {
+        'English':           'en-US',
+        'French':            'fr-FR',
+        'Spanish':           'es-ES',
+        'Hindi':             'hi-IN',
+        'Italian':           'it-IT',
+        'German':            'de-DE',
+        'Arabic':            'ar-SA',
+        'Japanese':          'ja-JP',
+        'Chinese (Mandarin)':'zh-CN',
+        'Portuguese':        'pt-PT'
+    };
+
+    const utterance  = new SpeechSynthesisUtterance(message);
+    utterance.lang   = langMap[language] || 'en-US';
+    utterance.rate   = 0.9;
+    utterance.pitch  = 1;
+    window.speechSynthesis.speak(utterance);
+}
+</script>
+
+{% endblock %}

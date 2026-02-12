@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="hero">
+    <div class="hero-icon"><i class="fa-solid fa-shield-heart"></i></div>
+    <h1>AllergyGuard</h1>
+    <p>Upload any restaurant menu, and we'll tell you exactly what's safe to eat based on your allergy profile — in any language.</p>
+    {% if current_user.is_authenticated %}
+        <a href="{{ url_for('analyse') }}" class="btn btn-primary">
+            <i class="fa-solid fa-camera"></i> Scan a Menu
+        </a>
+    {% else %}
+        <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started</a>
+        <a href="{{ url_for('login') }}" class="btn btn-secondary">Login</a>
+    {% endif %}
+</div>
+
+{% endblock %}

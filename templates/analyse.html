@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="form-card">
+    <h2><i class="fa-solid fa-camera"></i> Scan Menu</h2>
+    <p class="form-subtitle">Upload a photo of any menu in any language.</p>
+
+    <form method="POST" enctype="multipart/form-data">
+
+        <div class="upload-zone" id="uploadZone"
+             onclick="document.getElementById('menuFile').click()">
+            <div class="upload-placeholder" id="uploadPlaceholder">
+                <i class="fa-solid fa-image"></i>
+                <p><strong>Click to upload</strong> or drag and drop</p>
+                <small>JPG, PNG, WEBP supported</small>
+            </div>
+            <img id="previewImg" style="display:none;" alt="Menu Preview"/>
+        </div>
+
+        <input type="file" id="menuFile" name="menu_image"
+               accept="image/*" style="display:none;"
+               onchange="previewImage(event)"/>
+
+        <div class="form-group" style="margin-top:20px;">
+            <label><i class="fa-solid fa-language"></i> Waiter's Language</label>
+            <select name="waiter_language">
+                <option value="English">English</option>
+                <option value="French">French</option>
+                <option value="Spanish">Spanish</option>
+                <option value="Hindi">Hindi</option>
+                <option value="Italian">Italian</option>
+                <option value="German">German</option>
+                <option value="Arabic">Arabic</option>
+                <option value="Japanese">Japanese</option>
+                <option value="Chinese">Chinese (Mandarin)</option>
+                <option value="Portuguese">Portuguese</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="analyseBtn">
+            <i class="fa-solid fa-magnifying-glass"></i> Analyse Menu
+        </button>
+    </form>
+</div>
+
+<script>
+function previewImage(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.getElementById('previewImg');
+            img.src = e.target.result;
+            img.style.display = 'block';
+            document.getElementById('uploadPlaceholder').style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+document.querySelector('form').addEventListener('submit', function() {
+    const btn = document.getElementById('analyseBtn');
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analysing...';
+    btn.disabled = true;
+});
+</script>
+
+{% endblock %}

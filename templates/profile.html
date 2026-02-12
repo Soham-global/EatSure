@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="form-card">
+    <h2><i class="fa-solid fa-user-shield"></i> Allergy Profile</h2>
+    <p class="form-subtitle">Set up your allergies once. We'll check every menu against them.</p>
+
+    <form method="POST">
+        <div class="form-group">
+            <label>Your Allergies</label>
+            <input type="text" name="allergies"
+                   value="{{ user.allergies }}"
+                   placeholder="e.g. peanuts, dairy, gluten, shellfish"/>
+            <small>Separate multiple allergies with commas</small>
+        </div>
+        <div class="form-group">
+            <label>Additional Dietary Notes</label>
+            <textarea name="diet_notes" rows="3"
+                      placeholder="e.g. vegetarian, avoid spicy food">{{ user.diet_notes }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Save Profile
+        </button>
+    </form>
+
+    {% if user.allergies %}
+    <div class="allergy-tags">
+        <p>Current allergies:</p>
+        {% for allergy in user.allergies.split(',') %}
+            <span class="tag">{{ allergy.strip() }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
