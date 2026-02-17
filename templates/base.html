@@ -1,39 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>AllergyGuard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}EatSure{% endblock %}</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#080810">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <!-- Styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+    {% block head %}{% endblock %}
 </head>
 <body>
+
+    <!-- Navbar -->
     <nav class="navbar">
         <a href="{{ url_for('index') }}" class="nav-brand">
-            <i class="fa-solid fa-shield-heart"></i> AllergyGuard
+            <i class="fa-solid fa-shield-halved"></i>
+            Eat<span class="dot">Sure</span>
         </a>
+
         <div class="nav-links">
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('profile') }}"><i class="fa-solid fa-user"></i> Profile</a>
-                <a href="{{ url_for('analyse') }}"><i class="fa-solid fa-camera"></i> Scan Menu</a>
-                <a href="{{ url_for('logout') }}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                <a href="{{ url_for('index') }}"  {% if request.endpoint == 'index'   %}class="active"{% endif %}>
+                    <i class="fa-solid fa-house"></i><span>Home</span>
+                </a>
+                <a href="{{ url_for('analyse') }}" {% if request.endpoint == 'analyse' %}class="active"{% endif %}>
+                    <i class="fa-solid fa-camera"></i><span>Scan</span>
+                </a>
+                <a href="{{ url_for('profile') }}" {% if request.endpoint == 'profile' %}class="active"{% endif %}>
+                    <i class="fa-solid fa-user"></i><span>Profile</span>
+                </a>
+                <a href="{{ url_for('logout') }}">
+                    <i class="fa-solid fa-right-from-bracket"></i><span>Logout</span>
+                </a>
             {% else %}
-                <a href="{{ url_for('login') }}">Login</a>
-                <a href="{{ url_for('register') }}">Register</a>
+                <a href="{{ url_for('login') }}"    {% if request.endpoint == 'login'    %}class="active"{% endif %}>
+                    <i class="fa-solid fa-right-to-bracket"></i><span>Login</span>
+                </a>
+                <a href="{{ url_for('register') }}" {% if request.endpoint == 'register' %}class="active"{% endif %}>
+                    <i class="fa-solid fa-user-plus"></i><span>Register</span>
+                </a>
             {% endif %}
         </div>
     </nav>
 
-    <div class="main-container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="main-container" style="padding-bottom:0; padding-top:24px;">
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                    <div class="alert alert-{{ category }}">
+                        <i class="fa-solid {% if category == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+                        {{ message }}
+                    </div>
                 {% endfor %}
-            {% endif %}
-        {% endwith %}
+            </div>
+        {% endif %}
+    {% endwith %}
 
-        {% block content %}{% endblock %}
-    </div>
+    {% block content %}{% endblock %}
+
+    <!-- PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+    </script>
+
+    <!-- Cursor: hide default cursor ONLY after our custom one is ready -->
+    <script src="{{ url_for('static', filename='cursor.js') }}"></script>
+    <script>
+        // Only hide system cursor if NOT a touch device
+        if (!('ontouchstart' in window)) {
+            document.body.style.cursor = 'none';
+            // Also hide cursor on all child elements
+            var style = document.createElement('style');
+            style.textContent = '* { cursor: none !important; }';
+            document.head.appendChild(style);
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
 </body>
 </html>

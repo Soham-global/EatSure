@@ -1,18 +1,115 @@
 {% extends "base.html" %}
+{% block title %}EatSure — Eat Safe, Anywhere in the World{% endblock %}
 {% block content %}
 
-<div class="hero">
-    <div class="hero-icon"><i class="fa-solid fa-shield-heart"></i></div>
-    <h1>AllergyGuard</h1>
-    <p>Upload any restaurant menu, and we'll tell you exactly what's safe to eat based on your allergy profile — in any language.</p>
-    {% if current_user.is_authenticated %}
-        <a href="{{ url_for('analyse') }}" class="btn btn-primary">
-            <i class="fa-solid fa-camera"></i> Scan a Menu
-        </a>
-    {% else %}
-        <a href="{{ url_for('register') }}" class="btn btn-primary">Get Started</a>
-        <a href="{{ url_for('login') }}" class="btn btn-secondary">Login</a>
-    {% endif %}
+<div class="main-container">
+
+    <!-- ── Hero ── -->
+    <section class="hero">
+        <div class="hero-stamp">
+            <span>AI-Powered Allergy Protection</span>
+        </div>
+
+        <h1>
+            Eat <em>anywhere</em><br>
+            stay <em>safe</em>
+        </h1>
+
+        <p>
+            Scan any menu in any language — we'll instantly tell you
+            what's safe to eat based on your allergy profile.
+        </p>
+
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('analyse') }}" class="btn btn-primary">
+                <i class="fa-solid fa-camera"></i> Scan a Menu
+            </a>
+            <a href="{{ url_for('profile') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-user"></i> My Profile
+            </a>
+        {% else %}
+            <a href="{{ url_for('register') }}" class="btn btn-primary">
+                <i class="fa-solid fa-rocket"></i> Get Started Free
+            </a>
+            <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-right-to-bracket"></i> Log In
+            </a>
+        {% endif %}
+
+        <!-- ── Feature Cards ── -->
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fa-solid fa-camera"></i>
+                </div>
+                <h3>Snap the Menu</h3>
+                <p>Works with any menu — printed, handwritten, French, Japanese, Hindi. Point and shoot.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h3>Instant Safety Check</h3>
+                <p>Every dish is checked against your allergy profile. Green means go. Red means skip.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fa-solid fa-comment-dots"></i>
+                </div>
+                <h3>Talk to the Waiter</h3>
+                <p>Get a ready-made message in the local language to explain your allergies. Just press play.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── How It Works ── -->
+    <section class="how-it-works">
+        <div class="section-label">How it works</div>
+        <div class="steps-grid">
+            <div class="step">
+                <div class="step-number">01</div>
+                <div class="step-content">
+                    <h4>Set your profile once</h4>
+                    <p>Enter your allergies and dietary restrictions. You never have to repeat yourself again.</p>
+                </div>
+            </div>
+            <div class="step-divider"></div>
+            <div class="step">
+                <div class="step-number">02</div>
+                <div class="step-content">
+                    <h4>Scan the menu</h4>
+                    <p>Take a photo of any menu — even if it's in a language you don't understand.</p>
+                </div>
+            </div>
+            <div class="step-divider"></div>
+            <div class="step">
+                <div class="step-number">03</div>
+                <div class="step-content">
+                    <h4>Eat with confidence</h4>
+                    <p>See exactly what's safe for you, and get a waiter message in their language.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Supported Languages Strip ── -->
+    <section class="lang-strip">
+        <div class="lang-strip-label">Works with menus in</div>
+        <div class="lang-list">
+            <span>🇫🇷 French</span>
+            <span>🇯🇵 Japanese</span>
+            <span>🇮🇳 Hindi</span>
+            <span>🇪🇸 Spanish</span>
+            <span>🇩🇪 German</span>
+            <span>🇮🇹 Italian</span>
+            <span>🇸🇦 Arabic</span>
+            <span>🇨🇳 Chinese</span>
+            <span>🇰🇷 Korean</span>
+            <span>🇹🇭 Thai</span>
+            <span class="lang-more">+ many more</span>
+        </div>
+    </section>
+
 </div>
 
 {% endblock %}

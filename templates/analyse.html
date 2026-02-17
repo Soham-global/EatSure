@@ -1,52 +1,78 @@
 {% extends "base.html" %}
+{% block title %} — Scan Menu{% endblock %}
 {% block content %}
 
 <div class="form-card">
     <h2><i class="fa-solid fa-camera"></i> Scan Menu</h2>
-    <p class="form-subtitle">Upload a photo of any menu in any language.</p>
+    <p class="form-subtitle">Take a photo with your phone camera or upload from gallery. Works in any language.</p>
 
     <form method="POST" enctype="multipart/form-data">
 
+        <!-- ── Upload / Camera Zone ── -->
         <div class="upload-zone" id="uploadZone"
              onclick="document.getElementById('menuFile').click()">
             <div class="upload-placeholder" id="uploadPlaceholder">
-                <i class="fa-solid fa-image"></i>
-                <p><strong>Click to upload</strong> or drag and drop</p>
-                <small>JPG, PNG, WEBP supported</small>
+                <i class="fa-solid fa-camera"></i>
+                <p><strong>Tap to take photo</strong> or upload from gallery</p>
+                <small>JPG · PNG · WEBP · up to 16MB</small>
             </div>
             <img id="previewImg" style="display:none;" alt="Menu Preview"/>
         </div>
 
-        <input type="file" id="menuFile" name="menu_image"
-               accept="image/*" style="display:none;"
+        <!--
+            capture="environment" = opens BACK camera directly on mobile
+            accept="image/*"      = allows any image (camera or gallery)
+            If user wants to choose from gallery they can still do that
+        -->
+        <input type="file"
+               id="menuFile"
+               name="menu_image"
+               accept="image/*"
+               capture="environment"
+               style="display:none;"
                onchange="previewImage(event)"/>
 
-        <div class="form-group" style="margin-top:20px;">
-            <label><i class="fa-solid fa-language"></i> Waiter's Language</label>
+        <!-- ── Camera / Gallery Toggle (mobile UX) ── -->
+        <div id="cameraToggle" style="display:none; margin-top:12px; text-align:center;">
+            <button type="button" class="btn btn-secondary" style="font-size:13px; padding:8px 18px;" onclick="toggleCapture()">
+                <i class="fa-solid fa-images" id="toggleIcon"></i>
+                <span id="toggleText">Choose from Gallery instead</span>
+            </button>
+        </div>
+
+        <!-- ── Waiter Language ── -->
+        <div class="form-group" style="margin-top:22px;">
+            <label><i class="fa-solid fa-language"></i>&nbsp; Waiter's Language</label>
             <select name="waiter_language">
-                <option value="English">English</option>
-                <option value="French">French</option>
-                <option value="Spanish">Spanish</option>
-                <option value="Hindi">Hindi</option>
-                <option value="Italian">Italian</option>
-                <option value="German">German</option>
-                <option value="Arabic">Arabic</option>
-                <option value="Japanese">Japanese</option>
-                <option value="Chinese">Chinese (Mandarin)</option>
-                <option value="Portuguese">Portuguese</option>
+                <option value="English">🇬🇧 English</option>
+                <option value="Hindi">🇮🇳 Hindi</option>
+                <option value="Arabic">🇸🇦 Arabic</option>
+                <option value="Chinese (Mandarin)">🇨🇳 Chinese (Mandarin)</option>
+                <option value="Japanese">🇯🇵 Japanese</option>
             </select>
         </div>
 
-        <button type="submit" class="btn btn-primary" id="analyseBtn">
+        <button type="submit" class="btn btn-primary" id="analyseBtn"
+                style="width:100%; justify-content:center; margin-top:4px;">
             <i class="fa-solid fa-magnifying-glass"></i> Analyse Menu
         </button>
+
     </form>
 </div>
 
 <script>
-function previewImage(event) {
-    const file = event.target.files[0];
-    if (file) {
+    const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
+    let usingCamera = true;
+
+    // Show camera/gallery toggle only on mobile
+    if (isMobile) {
+        document.getElementById('cameraToggle').style.display = 'block';
+    }
+
+    function previewImage(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = document.getElementById('previewImg');
@@ -56,13 +82,75 @@ function previewImage(event) {
         };
         reader.readAsDataURL(file);
     }
-}
 
-document.querySelector('form').addEventListener('submit', function() {
-    const btn = document.getElementById('analyseBtn');
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analysing...';
-    btn.disabled = true;
-});
+    function toggleCapture() {
+        const input      = document.getElementById('menuFile');
+        const icon       = document.getElementById('toggleIcon');
+        const text       = document.getElementById('toggleText');
+        const placeholder = document.getElementById('uploadPlaceholder');
+
+        usingCamera = !usingCamera;
+
+        if (usingCamera) {
+            input.setAttribute('capture', 'environment');
+            icon.className = 'fa-solid fa-images';
+            text.textContent = 'Choose from Gallery instead';
+            placeholder.querySelector('p').innerHTML = '<strong>Tap to take photo</strong> or upload from gallery';
+            placeholder.querySelector('i').className = 'fa-solid fa-camera';
+        } else {
+            input.removeAttribute('capture');
+            icon.className = 'fa-solid fa-camera';
+            text.textContent = 'Use Camera instead';
+            placeholder.querySelector('p').innerHTML = '<strong>Tap to choose from gallery</strong>';
+            placeholder.querySelector('i').className = 'fa-solid fa-images';
+        }
+    }
+
+    // Show loading state on submit
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const file = document.getElementById('menuFile').files[0];
+        if (!file) {
+            e.preventDefault();
+            alert('Please take or upload a photo of the menu first.');
+            return;
+        }
+
+        const btn = document.getElementById('analyseBtn');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analysing...';
+        btn.disabled = true;
+    });
+
+    // Drag & drop on desktop
+    const uploadZone = document.getElementById('uploadZone');
+
+    uploadZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const dt       = new DataTransfer();
+            dt.items.add(file);
+            document.getElementById('menuFile').files = dt.files;
+
+            const reader = new FileReader();
+            reader.onload = ev => {
+                const img = document.getElementById('previewImg');
+                img.src = ev.target.result;
+                img.style.display = 'block';
+                document.getElementById('uploadPlaceholder').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
 </script>
 
 {% endblock %}
