@@ -8,16 +8,12 @@ from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from PIL import Image
 import pytesseract
-import google.generativeai as genai
 from database import db, User
 
 load_dotenv()
 
 # Configure Tesseract path
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-# Configure Google Gemini
-genai.configure(api_key=os.environ.get('GOOGLE_API_KEY'))
 
 app = Flask(__name__)
 app.config['SECRET_KEY']              = os.environ.get('SECRET_KEY')
@@ -55,10 +51,10 @@ def extract_text_from_image(filepath):
     image = Image.open(filepath)
     image = image.convert('L')  # Grayscale
     
-    # Use only installed and accurate languages
+    # Use all supported languages
     attempts = [
-        'eng+hin+ara+chi_sim+jpn',  # All installed languages
-        'eng+hin',  # Common combination
+        'eng+spa+fra+deu+por+hin+chi_sim+jpn',  # All languages
+        'eng+spa+fra+deu+por',  # European languages
         'eng',  # Fallback
     ]
     
@@ -214,7 +210,7 @@ def analyse():
                 return redirect(url_for('analyse'))
 
             prompt = f"""
-You are a professional food allergy safety analyzer. Your job is to protect the user from allergens.
+You are a STRICT food allergy safety analyzer. Your PRIMARY job is to PROTECT the user from allergens.
 
 User's allergies: {allergies}
 User's dietary restrictions: {diet_notes}
@@ -222,29 +218,38 @@ User's dietary restrictions: {diet_notes}
 Menu text extracted from image:
 {menu_text}
 
-INSTRUCTIONS:
-1. Identify ALL dishes from the menu
-2. For EACH dish, determine if it contains or likely contains ANY of the user's allergens
-3. Be CONSERVATIVE - if uncertain, mark as UNSAFE
-4. Consider common ingredients (e.g., pasta has gluten, cream has dairy, bread has gluten)
-5. Consider cross-contamination risks
+CRITICAL RULES:
+1. READ THE USER'S ALLERGIES CAREFULLY: {allergies}
+2. ANY dish containing these allergens MUST go in UNSAFE DISHES
+3. Common allergen sources:
+   - Dairy: milk, yogurt (dahi, curd), butter, cream, cheese, paneer, ghee, lassi, chaach, raita, kheer, rabdi, ras malai
+   - Peanuts: peanut butter, groundnuts, any dish with peanuts
+   - Gluten: wheat, bread, roti, naan, pasta, pizza
+   - Eggs: mayonnaise, cakes, omelette
+4. If a dish description mentions an allergen, it goes to UNSAFE
+5. If you're not 100% certain a dish is safe, put it in UNCERTAIN
+6. NEVER put a dish with dairy in SAFE if user is allergic to dairy
+7. NEVER put a dish with peanuts in SAFE if user is allergic to peanuts
 
 RESPONSE FORMAT (follow EXACTLY):
 
 SAFE DISHES:
-- [Dish Name]: [Why it's safe - be specific]
+- [Dish Name]: [Why it's safe - be specific about ingredients]
 
 UNSAFE DISHES:
-- [Dish Name]: [Which allergen(s) it contains]
+- [Dish Name]: [Which allergen it contains - be specific]
+
+UNCERTAIN DISHES:
+- [Dish Name]: [What information is missing]
 
 WAITER MESSAGE ({waiter_language}):
-[A polite 2-3 sentence message in {waiter_language} that the user can say to the waiter, explaining their allergies and asking for allergen-free preparation]
+[A polite 2-3 sentence message in {waiter_language} explaining the user's allergies and asking for allergen-free preparation]
 
 IMPORTANT:
 - Use bullet points (start with "-") for each dish
-- If no safe dishes exist, write "- None found"
-- If no unsafe dishes exist, write "- None found"
-- Be thorough and check every dish on the menu
+- If no dishes in a category, write "- None found"
+- Double-check every dish against the user's allergies: {allergies}
+- BE EXTREMELY CAREFUL - a mistake could harm the user
 """
 
             response = client.chat.completions.create(
@@ -253,10 +258,13 @@ IMPORTANT:
                     {
                         "role": "system",
                         "content": (
-                            "You are an expert food allergy safety analyzer. "
-                            "Always prioritize user safety. When in doubt, mark dishes as unsafe. "
-                            "Follow the exact output format requested. "
-                            "Analyze every dish thoroughly for allergen content."
+                            "You are a STRICT food allergy safety expert. "
+                            "Your PRIMARY responsibility is protecting users from allergens. "
+                            "NEVER mark a dish as safe if it contains the user's allergens. "
+                            "If a dish contains dairy (milk, yogurt, butter, cream, cheese, paneer, ghee, dahi, raita, lassi, chaach, kheer, rabdi), "
+                            "and the user is allergic to dairy, it MUST go in UNSAFE DISHES. "
+                            "If uncertain, put it in UNCERTAIN DISHES. "
+                            "A mistake could seriously harm the user. Be extremely careful."
                         )
                     },
                     {
@@ -264,23 +272,25 @@ IMPORTANT:
                         "content": prompt
                     }
                 ],
-                max_tokens=2000,
-                temperature=0.2
+                max_tokens=2500,
+                temperature=0.1
             )
 
             result_text = response.choices[0].message.content
 
-            safe_dishes    = []
-            unsafe_dishes  = []
-            waiter_message = ""
-            section        = None
+            safe_dishes      = []
+            unsafe_dishes    = []
+            uncertain_dishes = []
+            waiter_message   = ""
+            section          = None
 
             for line in result_text.split('\n'):
                 line = line.strip()
 
-                if 'SAFE DISHES:'   in line: section = 'safe';   continue
-                if 'UNSAFE DISHES:' in line: section = 'unsafe'; continue
-                if 'WAITER MESSAGE' in line: section = 'waiter'; continue
+                if 'SAFE DISHES:'      in line: section = 'safe';      continue
+                if 'UNSAFE DISHES:'    in line: section = 'unsafe';    continue
+                if 'UNCERTAIN DISHES:' in line: section = 'uncertain'; continue
+                if 'WAITER MESSAGE'    in line: section = 'waiter';    continue
 
                 if not line: continue
                 if line.lower().rstrip(':') == 'none': continue
@@ -291,6 +301,8 @@ IMPORTANT:
 
                     if section == 'unsafe':
                         unsafe_dishes.append(dish)
+                    elif section == 'uncertain':
+                        uncertain_dishes.append(dish)
                     elif section == 'safe':
                         if any(kw in dish_lower for kw in UNSAFE_KEYWORDS):
                             unsafe_dishes.append(dish)
@@ -301,10 +313,11 @@ IMPORTANT:
                     waiter_message += line + ' '
 
             return render_template('result.html',
-                safe_dishes    = safe_dishes,
-                unsafe_dishes  = unsafe_dishes,
-                waiter_message = waiter_message.strip(),
-                waiter_language= waiter_language
+                safe_dishes      = safe_dishes,
+                unsafe_dishes    = unsafe_dishes,
+                uncertain_dishes = uncertain_dishes,
+                waiter_message   = waiter_message.strip(),
+                waiter_language  = waiter_language
             )
 
         except Exception as e:
@@ -317,43 +330,56 @@ IMPORTANT:
 @app.route('/api/voice-chat', methods=['POST'])
 @login_required
 def voice_chat():
-    """Handle voice conversation with waiter using Gemini"""
+    """Handle voice conversation with waiter using Groq"""
     try:
         data = request.json
         user_message = data.get('message', '')
         conversation_history = data.get('history', [])
+        waiter_language = data.get('language', 'English')
         
         allergies = current_user.allergies or "none"
         diet_notes = current_user.diet_notes or "none"
         
-        # Create Gemini model
-        model = genai.GenerativeModel('gemini-pro')
-        
-        # Build conversation context
-        context = f"""
+        # Build conversation messages for Groq
+        messages = [
+            {
+                "role": "system",
+                "content": f"""
 You are a helpful assistant helping a person with food allergies communicate with a restaurant waiter.
 
 User's allergies: {allergies}
 User's dietary restrictions: {diet_notes}
+
+IMPORTANT: The waiter speaks {waiter_language}. You MUST respond ONLY in {waiter_language} language.
 
 Your role:
 - Help explain the user's allergies to the waiter
 - Ask clarifying questions about menu items
 - Confirm ingredients and preparation methods
 - Be polite and professional
-- Keep responses short and conversational
-
-Conversation so far:
+- Keep responses short and conversational (2-3 sentences max)
+- ALWAYS respond in {waiter_language}
 """
+            }
+        ]
         
+        # Add conversation history
         for msg in conversation_history:
-            context += f"{msg['role']}: {msg['content']}\n"
+            role = "assistant" if msg['role'] == 'You' else "user"
+            messages.append({"role": role, "content": msg['content']})
         
-        context += f"\nWaiter: {user_message}\n\nYour response:"
+        # Add current waiter message
+        messages.append({"role": "user", "content": user_message})
         
-        # Generate response
-        response = model.generate_content(context)
-        ai_response = response.text
+        # Generate response using Groq
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages,
+            max_tokens=150,
+            temperature=0.7
+        )
+        
+        ai_response = response.choices[0].message.content
         
         return jsonify({
             'success': True,
