@@ -1,19 +1,23 @@
 import os
 import base64
 from openai import OpenAI
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from PIL import Image
 import pytesseract
+import google.generativeai as genai
 from database import db, User
 
 load_dotenv()
 
 # Configure Tesseract path
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+# Configure Google Gemini
+genai.configure(api_key=os.environ.get('GOOGLE_API_KEY'))
 
 app = Flask(__name__)
 app.config['SECRET_KEY']              = os.environ.get('SECRET_KEY')
@@ -308,6 +312,59 @@ IMPORTANT:
             return redirect(url_for('analyse'))
 
     return render_template('analyse.html')
+
+
+@app.route('/api/voice-chat', methods=['POST'])
+@login_required
+def voice_chat():
+    """Handle voice conversation with waiter using Gemini"""
+    try:
+        data = request.json
+        user_message = data.get('message', '')
+        conversation_history = data.get('history', [])
+        
+        allergies = current_user.allergies or "none"
+        diet_notes = current_user.diet_notes or "none"
+        
+        # Create Gemini model
+        model = genai.GenerativeModel('gemini-pro')
+        
+        # Build conversation context
+        context = f"""
+You are a helpful assistant helping a person with food allergies communicate with a restaurant waiter.
+
+User's allergies: {allergies}
+User's dietary restrictions: {diet_notes}
+
+Your role:
+- Help explain the user's allergies to the waiter
+- Ask clarifying questions about menu items
+- Confirm ingredients and preparation methods
+- Be polite and professional
+- Keep responses short and conversational
+
+Conversation so far:
+"""
+        
+        for msg in conversation_history:
+            context += f"{msg['role']}: {msg['content']}\n"
+        
+        context += f"\nWaiter: {user_message}\n\nYour response:"
+        
+        # Generate response
+        response = model.generate_content(context)
+        ai_response = response.text
+        
+        return jsonify({
+            'success': True,
+            'response': ai_response
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 if __name__ == '__main__':

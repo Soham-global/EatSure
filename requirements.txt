@@ -6,3 +6,6 @@ python-dotenv
 pillow
 openai
 pytesseract
+google-cloud-speech
+google-cloud-texttospeech
+google-generativeai

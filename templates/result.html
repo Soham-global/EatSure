@@ -42,9 +42,32 @@
             <span class="lang-badge">{{ waiter_language }}</span>
         </h3>
         <p id="waiterMessage">{{ waiter_message }}</p>
-        <button class="btn btn-speak" onclick="speakToWaiter()">
-            <i class="fa-solid fa-volume-high"></i> Speak to Waiter
-        </button>
+        <div style="display:flex; gap:12px; margin-top:16px;">
+            <button class="btn btn-speak" onclick="speakToWaiter()">
+                <i class="fa-solid fa-volume-high"></i> Speak Message
+            </button>
+            <button class="btn btn-speak" onclick="startVoiceConversation()" style="background: linear-gradient(135deg, #15803d, #16a34a);">
+                <i class="fa-solid fa-microphone"></i> Talk to Waiter
+            </button>
+        </div>
+    </div>
+
+    <!-- Voice Conversation Modal -->
+    <div id="voiceModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:10000; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:20px; padding:40px; max-width:500px; width:90%; text-align:center;">
+            <h3 style="margin-bottom:20px;"><i class="fa-solid fa-comments"></i> Voice Conversation</h3>
+            <div id="conversationLog" style="max-height:300px; overflow-y:auto; margin-bottom:20px; text-align:left; padding:15px; background:#f5f5f5; border-radius:10px;">
+                <p style="color:#666; font-size:14px;">Click "Start Listening" to begin conversation...</p>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button id="listenBtn" class="btn btn-primary" onclick="startListening()">
+                    <i class="fa-solid fa-microphone"></i> Start Listening
+                </button>
+                <button class="btn btn-secondary" onclick="closeVoiceModal()">
+                    <i class="fa-solid fa-times"></i> Close
+                </button>
+            </div>
+        </div>
     </div>
 
     <a href="{{ url_for('analyse') }}" class="btn btn-secondary" style="margin-top:24px;">
@@ -53,27 +76,130 @@
 </div>
 
 <script>
+let conversationHistory = [];
+let recognition = null;
+
 function speakToWaiter() {
     const message  = document.getElementById('waiterMessage').textContent;
     const language = "{{ waiter_language }}";
 
     const langMap = {
         'English':           'en-US',
-        'French':            'fr-FR',
-        'Spanish':           'es-ES',
         'Hindi':             'hi-IN',
-        'Italian':           'it-IT',
-        'German':            'de-DE',
         'Arabic':            'ar-SA',
         'Japanese':          'ja-JP',
-        'Chinese (Mandarin)':'zh-CN',
-        'Portuguese':        'pt-PT'
+        'Chinese (Mandarin)':'zh-CN'
     };
 
     const utterance  = new SpeechSynthesisUtterance(message);
     utterance.lang   = langMap[language] || 'en-US';
     utterance.rate   = 0.9;
     utterance.pitch  = 1;
+    window.speechSynthesis.speak(utterance);
+}
+
+function startVoiceConversation() {
+    // Request microphone permission first
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(() => {
+            document.getElementById('voiceModal').style.display = 'flex';
+            conversationHistory = [];
+            
+            // Initialize speech recognition
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+            } else {
+                alert('Speech recognition not supported. Please use Chrome or Edge.');
+            }
+        })
+        .catch((error) => {
+            alert('Microphone permission denied. Please allow microphone access in your browser settings:\n\n1. Click the lock icon in address bar\n2. Allow microphone\n3. Reload the page');
+        });
+}
+
+function closeVoiceModal() {
+    document.getElementById('voiceModal').style.display = 'none';
+    if (recognition) recognition.stop();
+}
+
+function startListening() {
+    if (!recognition) {
+        alert('Speech recognition not available. Please use Chrome or Edge browser.');
+        return;
+    }
+    
+    const listenBtn = document.getElementById('listenBtn');
+    listenBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Listening...';
+    listenBtn.disabled = true;
+    
+    recognition.start();
+    console.log('Speech recognition started');
+    
+    recognition.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript;
+        console.log('Heard:', transcript);
+        addToConversation('Waiter', transcript);
+        
+        // Send to backend for AI response
+        try {
+            const response = await fetch('/api/voice-chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    message: transcript,
+                    history: conversationHistory
+                })
+            });
+            
+            const data = await response.json();
+            console.log('AI Response:', data);
+            
+            if (data.success) {
+                addToConversation('You', data.response);
+                speakResponse(data.response);
+            } else {
+                alert('Error: ' + data.error);
+                console.error('API Error:', data.error);
+            }
+        } catch (error) {
+            alert('Error communicating with server: ' + error.message);
+            console.error('Fetch error:', error);
+        }
+        
+        listenBtn.innerHTML = '<i class="fa-solid fa-microphone"></i> Start Listening';
+        listenBtn.disabled = false;
+    };
+    
+    recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        alert('Speech recognition error: ' + event.error + '. Make sure you granted microphone permission.');
+        listenBtn.innerHTML = '<i class="fa-solid fa-microphone"></i> Start Listening';
+        listenBtn.disabled = false;
+    };
+    
+    recognition.onend = () => {
+        console.log('Speech recognition ended');
+    };
+}
+
+function addToConversation(role, message) {
+    conversationHistory.push({role, content: message});
+    const log = document.getElementById('conversationLog');
+    const msgDiv = document.createElement('div');
+    msgDiv.style.marginBottom = '10px';
+    msgDiv.innerHTML = `<strong>${role}:</strong> ${message}`;
+    log.appendChild(msgDiv);
+    log.scrollTop = log.scrollHeight;
+}
+
+function speakResponse(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
     window.speechSynthesis.speak(utterance);
 }
 </script>
